@@ -1,81 +1,84 @@
-var contacts = [];
-var currentView = 'all';
-var myModal = new bootstrap.Modal(document.getElementById('contactModal'));
+// Main Variables
+var contactsListArray = [];
+var currentFilter = 'all';
 
-// Get all elements
-var contactsGrid = document.getElementById('contactsGrid');
-var emptyState = document.getElementById('emptyState');
-var emptyStateText = document.getElementById('emptyStateText');
-var totalCountBadge = document.getElementById('totalCountBadge');
+// HTML Elements
+var cardsContainer = document.getElementById('contactsList');
+var noDataAlert = document.getElementById('noDataAlert');
+var totalCounter = document.getElementById('totalCounter');
 
-var contactIdInput = document.getElementById('contactId');
-var contactNameInput = document.getElementById('contactName');
-var contactPhoneInput = document.getElementById('contactPhone');
-var contactEmailInput = document.getElementById('contactEmail');
-var contactCategoryInput = document.getElementById('contactCategory');
-var contactFavoriteInput = document.getElementById('contactFavorite');
-var modalTitleText = document.getElementById('modalTitleText');
-var searchInput = document.getElementById('searchInput');
+var editIndexInput = document.getElementById('editIndex');
+var nameInput = document.getElementById('inputName');
+var phoneInput = document.getElementById('inputPhone');
+var emailInput = document.getElementById('inputEmail');
+var groupInput = document.getElementById('inputGroup');
+var favInput = document.getElementById('inputFav');
+var searchBox = document.getElementById('searchBox');
+var formTitle = document.getElementById('formTitle');
 
-// Load contacts on startup
-if (localStorage.getItem('my_contacts') !== null) {
-  contacts = JSON.parse(localStorage.getItem('my_contacts'));
+var btnShowAll = document.getElementById('btnShowAll');
+var btnShowFav = document.getElementById('btnShowFav');
+
+// Load Data from LocalStorage when page opens
+if (localStorage.getItem('my_saved_contacts') !== null) {
+  var savedData = localStorage.getItem('my_saved_contacts');
+  contactsListArray = JSON.parse(savedData);
 }
-displayContacts();
 
-function displayContacts() {
-  var cartona = '';
-  var searchValue = searchInput.value.toLowerCase().trim();
-  var count = 0;
+showContacts();
 
-  for (var i = 0; i < contacts.length; i++) {
-    var item = contacts[i];
+// Function to Render Data
+function showContacts() {
+  var htmlCards = '';
+  var searchWord = searchBox.value.toLowerCase().trim();
+  var visibleCount = 0;
 
-    // Filter view (all vs favorites)
-    if (currentView === 'favorites' && !item.favorite) {
+  for (var i = 0; i < contactsListArray.length; i++) {
+    var person = contactsListArray[i];
+
+    // Filter by Favorites
+    if (currentFilter === 'fav' && person.isFav === false) {
       continue;
     }
 
-    // Filter search
-    var nameMatch = item.name.toLowerCase().includes(searchValue);
-    var phoneMatch = item.phone.toLowerCase().includes(searchValue);
-    var emailMatch = item.email.toLowerCase().includes(searchValue);
+    // Filter by Search Word
+    var nameMatch = person.name.toLowerCase().indexOf(searchWord) !== -1;
+    var phoneMatch = person.phone.toLowerCase().indexOf(searchWord) !== -1;
 
-    if (searchValue !== '' && !nameMatch && !phoneMatch && !emailMatch) {
+    if (searchWord !== '' && !nameMatch && !phoneMatch) {
       continue;
     }
 
-    count++;
+    visibleCount = visibleCount + 1;
 
-    var firstChar = item.name.charAt(0).toUpperCase();
-    var starIcon = item.favorite ? 'bi-star-fill' : 'bi-star';
-    var starClass = item.favorite ? 'favorite-toggle is-favorite' : 'favorite-toggle';
+    var starClass = 'fav-btn';
+    if (person.isFav === true) {
+      starClass = 'fav-btn is-active';
+    }
 
-    cartona += `
-      <div class="col-12 col-md-6 col-lg-4 contact-card-wrap">
-        <div class="contact-card">
-          <div class="card-tab">${firstChar}</div>
-          <div class="card-top-row">
-            <button type="button" class="${starClass}" onclick="toggleFavorite(${i})">
-              <i class="bi ${starIcon}"></i>
+    htmlCards = htmlCards + `
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="custom-card">
+          <button class="${starClass}" onclick="toggleFav(${i})">
+            <i class="bi bi-star-fill"></i>
+          </button>
+          
+          <div class="card-title-name">${person.name}</div>
+          <span class="category-tag">${person.group}</span>
+          
+          <div class="info-line">
+            <i class="bi bi-telephone"></i> ${person.phone}
+          </div>
+          <div class="info-line">
+            <i class="bi bi-envelope"></i> ${person.email}
+          </div>
+
+          <div class="card-btns d-flex gap-2">
+            <button class="btn btn-sm btn-outline-info w-50" onclick="startEdit(${i})">
+              <i class="bi bi-pencil"></i> Edit
             </button>
-          </div>
-          <div class="contact-name">${item.name}</div>
-          <span class="contact-category">${item.category}</span>
-          <div class="contact-detail-line">
-            <i class="bi bi-telephone-fill"></i>
-            <a href="tel:${item.phone}">${item.phone}</a>
-          </div>
-          <div class="contact-detail-line">
-            <i class="bi bi-envelope-fill"></i>
-            <a href="mailto:${item.email}">${item.email}</a>
-          </div>
-          <div class="card-actions">
-            <button type="button" class="btn btn-edit-contact" onclick="editContact(${i})">
-              <i class="bi bi-pencil-fill"></i> Edit
-            </button>
-            <button type="button" class="btn btn-delete-contact" onclick="deleteContact(${i})">
-              <i class="bi bi-trash-fill"></i> Delete
+            <button class="btn btn-sm btn-outline-danger w-50" onclick="deleteContact(${i})">
+              <i class="bi bi-trash"></i> Delete
             </button>
           </div>
         </div>
@@ -83,107 +86,127 @@ function displayContacts() {
     `;
   }
 
-  contactsGrid.innerHTML = cartona;
-  totalCountBadge.textContent = contacts.length + ' contacts';
+  cardsContainer.innerHTML = htmlCards;
+  totalCounter.textContent = contactsListArray.length + ' Contacts';
 
-  // Empty state handling
-  if (count === 0) {
-    emptyState.classList.remove('d-none');
-    if (contacts.length === 0) {
-      emptyStateText.textContent = 'Add your first contact to get started.';
-    } else if (currentView === 'favorites') {
-      emptyStateText.textContent = 'No favorites yet.';
-    } else {
-      emptyStateText.textContent = 'No contacts match your search.';
-    }
+  // Empty message check
+  if (visibleCount === 0) {
+    noDataAlert.classList.remove('d-none');
   } else {
-    emptyState.classList.add('d-none');
+    noDataAlert.classList.add('d-none');
   }
 }
 
-function openAddModal() {
-  clearForm();
-  modalTitleText.textContent = 'Add Contact';
-  contactIdInput.value = '';
+// Reset Form fields
+function prepareAddForm() {
+  editIndexInput.value = '';
+  nameInput.value = '';
+  phoneInput.value = '';
+  emailInput.value = '';
+  groupInput.value = '';
+  favInput.checked = false;
+  formTitle.textContent = 'Add New Contact';
 }
 
-function clearForm() {
-  contactNameInput.value = '';
-  contactPhoneInput.value = '';
-  contactEmailInput.value = '';
-  contactCategoryInput.value = '';
-  contactFavoriteInput.checked = false;
-}
+// Save or Update Contact
+function saveData() {
+  var nameValue = nameInput.value.trim();
+  var phoneValue = phoneInput.value.trim();
+  var emailValue = emailInput.value.trim();
+  var groupValue = groupInput.value;
+  var favValue = favInput.checked;
 
-function saveContact() {
-  var name = contactNameInput.value.trim();
-  var phone = contactPhoneInput.value.trim();
-  var email = contactEmailInput.value.trim();
-  var category = contactCategoryInput.value;
-  var favorite = contactFavoriteInput.checked;
-
-  // Basic Validation
-  if (name === '' || phone === '' || email === '' || category === '') {
-    alert('Please fill all required fields!');
+  // Simple Validation
+  if (nameValue === '' || phoneValue === '' || groupValue === '') {
+    alert('Please fill in Name, Phone, and Group fields!');
     return;
   }
 
-  var index = contactIdInput.value;
-
-  var newContact = {
-    name: name,
-    phone: phone,
-    email: email,
-    category: category,
-    favorite: favorite
+  var contactObject = {
+    name: nameValue,
+    phone: phoneValue,
+    email: emailValue,
+    group: groupValue,
+    isFav: favValue
   };
 
-  if (index === '') {
-    // Add New
-    contacts.push(newContact);
+  var editIdx = editIndexInput.value;
+
+  if (editIdx === '') {
+    // Add new
+    contactsListArray.push(contactObject);
   } else {
-    // Update
-    contacts[index] = newContact;
+    // Update existing
+    contactsListArray[editIdx] = contactObject;
   }
 
-  localStorage.setItem('my_contacts', JSON.stringify(contacts));
-  displayContacts();
-  myModal.hide();
+  // Save to LocalStorage
+  localStorage.setItem('my_saved_contacts', JSON.stringify(contactsListArray));
+
+  showContacts();
+
+  // Close Bootstrap Modal
+  var modalElement = document.getElementById('contactModal');
+  var modalInstance = bootstrap.Modal.getInstance(modalElement);
+  modalInstance.hide();
 }
 
+// Delete Contact
 function deleteContact(index) {
-  if (confirm('Are you sure you want to delete ' + contacts[index].name + '?')) {
-    contacts.splice(index, 1);
-    localStorage.setItem('my_contacts', JSON.stringify(contacts));
-    displayContacts();
+  var confirmDelete = confirm('Are you sure you want to delete this contact?');
+  if (confirmDelete === true) {
+    contactsListArray.splice(index, 1);
+    localStorage.setItem('my_saved_contacts', JSON.stringify(contactsListArray));
+    showContacts();
   }
 }
 
-function editContact(index) {
-  var contact = contacts[index];
+// Edit Contact Form Setup
+function startEdit(index) {
+  var selectedPerson = contactsListArray[index];
 
-  contactIdInput.value = index;
-  contactNameInput.value = contact.name;
-  contactPhoneInput.value = contact.phone;
-  contactEmailInput.value = contact.email;
-  contactCategoryInput.value = contact.category;
-  contactFavoriteInput.checked = contact.favorite;
+  editIndexInput.value = index;
+  nameInput.value = selectedPerson.name;
+  phoneInput.value = selectedPerson.phone;
+  emailInput.value = selectedPerson.email;
+  groupInput.value = selectedPerson.group;
+  favInput.checked = selectedPerson.isFav;
 
-  modalTitleText.textContent = 'Edit Contact';
-  myModal.show();
+  formTitle.textContent = 'Edit Contact';
+
+  var modalElement = document.getElementById('contactModal');
+  var modalInstance = new bootstrap.Modal(modalElement);
+  modalInstance.show();
 }
 
-function toggleFavorite(index) {
-  contacts[index].favorite = !contacts[index].favorite;
-  localStorage.setItem('my_contacts', JSON.stringify(contacts));
-  displayContacts();
+// Toggle Favorite Status
+function toggleFav(index) {
+  if (contactsListArray[index].isFav === true) {
+    contactsListArray[index].isFav = false;
+  } else {
+    contactsListArray[index].isFav = true;
+  }
+
+  localStorage.setItem('my_saved_contacts', JSON.stringify(contactsListArray));
+  showContacts();
 }
 
-function searchContacts() {
-  displayContacts();
+// Search
+function searchData() {
+  showContacts();
 }
 
-function filterView(view) {
-  currentView = view;
-  displayContacts();
+// Change Filter (All / Favorites)
+function changeFilter(type) {
+  currentFilter = type;
+
+  if (type === 'all') {
+    btnShowAll.classList.add('active');
+    btnShowFav.classList.remove('active');
+  } else {
+    btnShowAll.classList.remove('active');
+    btnShowFav.classList.add('active');
+  }
+
+  showContacts();
 }
